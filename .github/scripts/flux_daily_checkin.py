@@ -1,51 +1,46 @@
-import requests
 import os
+import re
 import json
+import requests
 
-TOKEN = os.getenv("FLUX_TOKEN")
+print("🔹 📡 Starting Flux AI daily credit check-in...")
+print("🔹 📡 Checking credits via /pricing...")
 
-def log(message):
-    print(f"🔹 {message}")
+# Get your token from the environment variable
+token = os.getenv("FLUX_TOKEN")
+if not token:
+    print("❌ FLUX_TOKEN not found in environment variables.")
+    exit(1)
 
-def check_credits():
-    log("📡 Checking credits via /pricing...")
-    url = "https://flux-ai.io/pricing/"
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json",
-        "Accept": "text/x-component",
-    }
+headers = {
+    "Authorization": token,  # should include 'Bearer ...'
+    "Accept": "text/x-component",
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0"
+}
 
-    try:
-        response = requests.post(url, headers=headers, json={"site": "flux-ai.io"})
-        log(f"🔁 Status Code: {response.status_code}")
-        if response.status_code != 200:
-            print(f"❌ Unexpected status code: {response.status_code}")
-            print(f"📦 Response text: {response.text}")
-            return
+try:
+    response = requests.post("https://flux-ai.io/pricing/", headers=headers)
 
-        # Handle non-JSON responses (e.g., HTML errors)
-        try:
-            json_data = response.json()
-        except json.JSONDecodeError:
-            print(f"❌ Failed to decode JSON: {response.text[:300]}...")
-            return
+    if response.status_code != 200:
+        print(f"❌ Failed: Unexpected status code: {response.status_code}")
+        print("📦 Response:", response.text[:300])
+        exit(1)
 
-        code = json_data.get("code")
-        if code != 200:
-            print(f"❌ Error code: {code} — {json_data.get('msg')}")
-            return
+    # RSC-style response: look for line starting with 1: and extract JSON
+    matches = re.findall(r'\n1:(\{.*?\})', response.text)
 
-        user_data = json_data.get("data", {})
-        credits = user_data.get("credits")
-        email = user_data.get("email")
-        name = user_data.get("nickName")
+    if not matches:
+        print("❌ No valid JSON found in /pricing response.")
+        print("📦 Raw response (start):", response.text[:300])
+        exit(1)
 
-        log(f"✅ Success: {credits} credits left for {name} ({email})")
+    json_data = json.loads(matches[0])
+    credits = json_data["data"].get("credits", "N/A")
 
-    except Exception as e:
-        print(f"❌ Request failed: {e}")
+    print(f"✅ You currently have {credits} credits.")
 
-if __name__ == "__main__":
-    log("📡 Starting Flux AI daily credit check-in...")
-    check_credits()
+except Exception as e:
+    print("❌ Failed to decode structured credit info.")
+    print("🔍 Error:", e)
+    exit(1)
