@@ -1,41 +1,25 @@
-import requests
 import os
+import requests
+import json
 
-def get_flux_credit():
-    print("📡 Starting credit check...")
+print("📡 Starting credit check...")
 
-    token = os.getenv("FLUX_BEARER_TOKEN")
-    if not token:
-        print("❌ Missing token in environment variable FLUX_BEARER_TOKEN")
-        exit(1)
+url = "https://flux-ai.io/pricing/"
+headers = {
+    "Authorization": f"Bearer {os.getenv('FLUX_BEARER_TOKEN')}",
+    "Content-Type": "application/json"
+}
 
-    url = "https://flux-ai.io/pricing/"
-    headers = {
-        "Authorization": token,
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (GitHubActionBot/1.0)"
-    }
+print(f"➡️ Sending POST request to {url}...")
+res = requests.post(url, headers=headers)
 
-    try:
-        print(f"➡️ Sending POST request to {url}")
-        response = requests.post(url, headers=headers)
-        print(f"🔁 Status Code: {response.status_code}")
-        response.raise_for_status()
+print(f"🔁 Status Code: {res.status_code}")
+print("📝 Raw response text:")
+print(res.text)  # <--- This will help us debug
 
-        data = response.json()
-        print("📦 Response data received")
-
-        if data.get("code") == 200 and "data" in data:
-            credits = data["data"].get("credits", "N/A")
-            user = data["data"].get("userName", "Unknown user")
-            print(f"✅ User: {user} | Current Credits: {credits}")
-        else:
-            print(f"⚠️ Unexpected response: {data}")
-            exit(1)
-
-    except requests.exceptions.RequestException as e:
-        print("❌ Request failed:", e)
-        exit(1)
-
-if __name__ == "__main__":
-    get_flux_credit()
+try:
+    data = res.json()
+    print(f"✅ JSON decoded: {data}")
+except Exception as e:
+    print(f"❌ Failed to decode JSON: {e}")
+    exit(1)
