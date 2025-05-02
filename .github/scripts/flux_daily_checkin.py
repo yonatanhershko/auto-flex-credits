@@ -2,59 +2,50 @@ import requests
 import os
 import json
 
-BASE_URL = "https://api2.tap4.ai"
-HEADERS = {
-    "Content-Type": "application/json",
-    "Accept": "*/*",
-}
+TOKEN = os.getenv("FLUX_TOKEN")
 
-SITE = "flux-ai.io"
-EMAIL = os.environ.get("FLUX_EMAIL")  # optional
-TOKEN = os.environ.get("FLUX_BEARER_TOKEN")
-
-def log(msg):
-    print(f"🔹 {msg}")
-
-def sign_in():
-    log("Signing in...")
-    res = requests.post(
-        f"{BASE_URL}/signIn",
-        headers=HEADERS,
-        json={"site": SITE}
-    )
-    try:
-        res.raise_for_status()
-        data = res.json()
-        if data.get("code") != 200:
-            raise Exception(f"Unexpected response code: {data}")
-        log("✅ Sign-in success.")
-    except Exception as e:
-        print(f"❌ Sign-in failed: {e}")
-        print(f"📦 Response: {res.text}")
-        exit(1)
+def log(message):
+    print(f"🔹 {message}")
 
 def check_credits():
-    log("Checking credits...")
-    headers = {**HEADERS, "Authorization": f"Bearer {TOKEN}"}
-    res = requests.post(
-        f"{BASE_URL}/pricing",
-        headers=headers,
-        json={"site": SITE}
-    )
-    try:
-        res.raise_for_status()
-        if "application/json" not in res.headers.get("Content-Type", ""):
-            raise ValueError("Response is not JSON")
+    log("📡 Checking credits via /pricing...")
+    url = "https://flux-ai.io/pricing/"
+    headers = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "text/x-component",
+    }
 
-        data = res.json()
-        credits = data["data"]["credits"]
-        log(f"💰 Current credits: {credits}")
+    try:
+        response = requests.post(url, headers=headers, json={"site": "flux-ai.io"})
+        log(f"🔁 Status Code: {response.status_code}")
+        if response.status_code != 200:
+            print(f"❌ Unexpected status code: {response.status_code}")
+            print(f"📦 Response text: {response.text}")
+            return
+
+        # Handle non-JSON responses (e.g., HTML errors)
+        try:
+            json_data = response.json()
+        except json.JSONDecodeError:
+            print(f"❌ Failed to decode JSON: {response.text[:300]}...")
+            return
+
+        code = json_data.get("code")
+        if code != 200:
+            print(f"❌ Error code: {code} — {json_data.get('msg')}")
+            return
+
+        user_data = json_data.get("data", {})
+        credits = user_data.get("credits")
+        email = user_data.get("email")
+        name = user_data.get("nickName")
+
+        log(f"✅ Success: {credits} credits left for {name} ({email})")
+
     except Exception as e:
-        print(f"❌ Failed to check credits: {e}")
-        print(f"📦 Response text: {res.text}")
-        exit(1)
+        print(f"❌ Request failed: {e}")
 
 if __name__ == "__main__":
     log("📡 Starting Flux AI daily credit check-in...")
-    sign_in()
     check_credits()
