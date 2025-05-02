@@ -2,10 +2,11 @@ import requests
 import os
 
 def get_flux_credit():
-    token = os.getenv("FLUX_BEARER_TOKEN")
+    print("📡 Starting credit check...")
 
+    token = os.getenv("FLUX_BEARER_TOKEN")
     if not token:
-        print("❌ No token provided in FLUX_BEARER_TOKEN")
+        print("❌ Missing token in environment variable FLUX_BEARER_TOKEN")
         exit(1)
 
     url = "https://flux-ai.io/pricing/"
@@ -16,19 +17,24 @@ def get_flux_credit():
     }
 
     try:
+        print(f"➡️ Sending POST request to {url}")
         response = requests.post(url, headers=headers)
+        print(f"🔁 Status Code: {response.status_code}")
         response.raise_for_status()
-        data = response.json()
 
-        if data.get("code") == 200:
-            credits = data.get("data", {}).get("credits")
-            print(f"✅ Flux Credits: {credits}")
+        data = response.json()
+        print("📦 Response data received")
+
+        if data.get("code") == 200 and "data" in data:
+            credits = data["data"].get("credits", "N/A")
+            user = data["data"].get("userName", "Unknown user")
+            print(f"✅ User: {user} | Current Credits: {credits}")
         else:
-            print("⚠️ Unexpected response:", data)
+            print(f"⚠️ Unexpected response: {data}")
             exit(1)
 
-    except Exception as e:
-        print("❌ Error:", e)
+    except requests.exceptions.RequestException as e:
+        print("❌ Request failed:", e)
         exit(1)
 
 if __name__ == "__main__":
