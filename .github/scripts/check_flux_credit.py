@@ -1,32 +1,35 @@
 import requests
-from bs4 import BeautifulSoup
+import os
 
-def get_flux_free_credit():
+def get_flux_credit():
+    token = os.getenv("FLUX_BEARER_TOKEN")
+
+    if not token:
+        print("❌ No token provided in FLUX_BEARER_TOKEN")
+        exit(1)
+
+    url = "https://flux-ai.io/pricing/"
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (GitHubActionBot/1.0)"
+    }
+
     try:
-        url = "https://flux-ai.io/pricing/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; GitHubActionBot/1.0)"
-        }
-
-        response = requests.get(url, headers=headers)
+        response = requests.post(url, headers=headers)
         response.raise_for_status()
+        data = response.json()
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        free_credit_text = ""
-        for elem in soup.find_all(text=True):
-            if "free credit" in elem.lower():
-                free_credit_text = elem.strip()
-                break
-
-        if free_credit_text:
-            print(f"Found free credit info: {free_credit_text}")
+        if data.get("code") == 200:
+            credits = data.get("data", {}).get("credits")
+            print(f"✅ Flux Credits: {credits}")
         else:
-            print("Could not find free credit information.")
+            print("⚠️ Unexpected response:", data)
+            exit(1)
 
     except Exception as e:
-        print("❌ Error occurred:", str(e))
+        print("❌ Error:", e)
         exit(1)
 
 if __name__ == "__main__":
-    get_flux_free_credit()
+    get_flux_credit()
