@@ -1,28 +1,28 @@
-name: Check Flux AI Free Credit
+name: Flux Daily Credit Check-in
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # Run every day at 12:00 UTC
-  workflow_dispatch:      # Allow manual run from the Actions tab
+    - cron: "0 8 * * *"  # Runs every day at 08:00 UTC
+  workflow_dispatch:      # Allow manual run
 
 jobs:
-  check-credit:
+  daily-checkin:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           pip install requests
 
-      - name: Run credit check script
+      - name: Run daily credit check-in
         env:
           FLUX_BEARER_TOKEN: ${{ secrets.FLUX_BEARER_TOKEN }}
-        run: python .github/scripts/check_flux_credit.py
+        run: python .github/scripts/flux_daily_checkin.py
