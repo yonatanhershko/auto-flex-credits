@@ -1,46 +1,66 @@
 import os
-import re
-import json
 import requests
 
-print("🔹 📡 Starting Flux AI daily credit check-in...")
-print("🔹 📡 Checking credits via /pricing...")
+SIGNIN_URL = "https://api2.tap4.ai/signIn"
+PRICING_URL = "https://flux-ai.io/pricing/"
 
-# Get your token from the environment variable
-token = os.getenv("FLUX_TOKEN")
-if not token:
-    print("❌ FLUX_TOKEN not found in environment variables.")
-    exit(1)
+def log(msg):
+    print(f"🔹 {msg}")
 
-headers = {
-    "Authorization": token,  # should include 'Bearer ...'
-    "Accept": "text/x-component",
-    "Content-Type": "application/json",
-    "User-Agent": "Mozilla/5.0"
-}
+def main():
+    log("📡 Starting Flux AI daily credit check-in...")
 
-try:
-    response = requests.post("https://flux-ai.io/pricing/", headers=headers)
-
-    if response.status_code != 200:
-        print(f"❌ Failed: Unexpected status code: {response.status_code}")
-        print("📦 Response:", response.text[:300])
+    token = os.getenv("FLUX_TOKEN")
+    if not token:
+        print("❌ FLUX_TOKEN environment variable not set.")
         exit(1)
 
-    # RSC-style response: look for line starting with 1: and extract JSON
-    matches = re.findall(r'\n1:(\{.*?\})', response.text)
+    log("🔐 Signing in to get new access token...")
+    headers = {
+        "Authorization": f"{token}",
+        "Content-Type": "application/json",
+    }
+    payload = {"site": "flux-ai.io"}
 
-    if not matches:
-        print("❌ No valid JSON found in /pricing response.")
-        print("📦 Raw response (start):", response.text[:300])
+    signin_resp = requests.post(SIGNIN_URL, json=payload, headers=headers)
+    if signin_resp.status_code != 200:
+        print(f"❌ Sign-in failed: {signin_resp.status_code}")
+        print(f"📦 Response: {signin_resp.text}")
         exit(1)
 
-    json_data = json.loads(matches[0])
-    credits = json_data["data"].get("credits", "N/A")
+    signin_data = signin_resp.json()
+    if signin_data.get("code") != 200 or not signin_data.get("data"):
+        print(f"❌ Sign-in failed: {signin_data}")
+        exit(1)
 
-    print(f"✅ You currently have {credits} credits.")
+    new_token = signin_data["data"].get("token") or signin_data["data"].get("accessToken")
+    if not new_token:
+        print("❌ No new token found in sign-in response.")
+        print(f"📦 Full response: {signin_data}")
+        exit(1)
 
-except Exception as e:
-    print("❌ Failed to decode structured credit info.")
-    print("🔍 Error:", e)
-    exit(1)
+    log("📡 Checking credits via /pricing...")
+    pricing_headers = {
+        "Authorization": f"Bearer {new_token}",
+        "Content-Type": "application/json",
+    }
+
+    pricing_resp = requests.post(PRICING_URL, headers=pricing_headers)
+    if pricing_resp.status_code != 200:
+        print(f"❌ Failed to fetch pricing. Status: {pricing_resp.status_code}")
+        print(f"📦 Response: {pricing_resp.text}")
+        exit(1)
+
+    try:
+        pricing_data = pricing_resp.json()
+    except Exception as e:
+        print(f"❌ Failed to decode JSON: {e}")
+        print(f"📦 Raw response (start): {pricing_resp.text[:300]}")
+        exit(1)
+
+    print("✅ Credit check-in successful!")
+    print(f"👤 User: {pricing_data['data']['userName']}")
+    print(f"💳 Credits: {pricing_data['data']['credits']}")
+
+if __name__ == "__main__":
+    main()
