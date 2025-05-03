@@ -24,4 +24,5 @@ jobs:
       - name: 🔁 Run Flux AI Daily Check-In
         env:
           FLUX_TOKEN: ${{ secrets.FLUX_TOKEN }}
+          FLUX_EMAIL: ${{ secrets.FLUX_EMAIL }}
         run: python .github/scripts/flux_daily_checkin.py
