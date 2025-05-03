@@ -8,7 +8,7 @@ HEADERS = {
     'Accept': '*/*'
 }
 PAYLOAD = {'site': 'flux-ai.io'}
-
+EMAIL = os.environ.get("FLUX_EMAIL")
 print("🔹 📡 Starting Flux AI daily credit check-in...")
 
 try:
