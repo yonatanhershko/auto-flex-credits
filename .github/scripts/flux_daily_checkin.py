@@ -1,66 +1,36 @@
 import os
 import requests
 
-SIGNIN_URL = "https://api2.tap4.ai/signIn"
-PRICING_URL = "https://flux-ai.io/pricing/"
+SIGNIN_URL = 'https://api2.tap4.ai/signIn'
+HEADERS = {
+    'Authorization': f"Bearer {os.getenv('FLUX_TOKEN')}",
+    'Content-Type': 'application/json',
+    'Accept': '*/*'
+}
+PAYLOAD = {'site': 'flux-ai.io'}
 
-def log(msg):
-    print(f"🔹 {msg}")
+print("🔹 📡 Starting Flux AI daily credit check-in...")
 
-def main():
-    log("📡 Starting Flux AI daily credit check-in...")
-
-    token = os.getenv("FLUX_TOKEN")
-    if not token:
-        print("❌ FLUX_TOKEN environment variable not set.")
-        exit(1)
-
-    log("🔐 Signing in to get new access token...")
-    headers = {
-        "Authorization": f"{token}",
-        "Content-Type": "application/json",
-    }
-    payload = {"site": "flux-ai.io"}
-
-    signin_resp = requests.post(SIGNIN_URL, json=payload, headers=headers)
-    if signin_resp.status_code != 200:
-        print(f"❌ Sign-in failed: {signin_resp.status_code}")
-        print(f"📦 Response: {signin_resp.text}")
-        exit(1)
-
-    signin_data = signin_resp.json()
-    if signin_data.get("code") != 200 or not signin_data.get("data"):
-        print(f"❌ Sign-in failed: {signin_data}")
-        exit(1)
-
-    new_token = signin_data["data"].get("token") or signin_data["data"].get("accessToken")
-    if not new_token:
-        print("❌ No new token found in sign-in response.")
-        print(f"📦 Full response: {signin_data}")
-        exit(1)
-
-    log("📡 Checking credits via /pricing...")
-    pricing_headers = {
-        "Authorization": f"Bearer {new_token}",
-        "Content-Type": "application/json",
-    }
-
-    pricing_resp = requests.post(PRICING_URL, headers=pricing_headers)
-    if pricing_resp.status_code != 200:
-        print(f"❌ Failed to fetch pricing. Status: {pricing_resp.status_code}")
-        print(f"📦 Response: {pricing_resp.text}")
-        exit(1)
-
+try:
+    response = requests.post(SIGNIN_URL, json=PAYLOAD, headers=HEADERS)
+    print(f"🔹 HTTP {response.status_code}")
+    
+    # Attempt to parse JSON
     try:
-        pricing_data = pricing_resp.json()
-    except Exception as e:
-        print(f"❌ Failed to decode JSON: {e}")
-        print(f"📦 Raw response (start): {pricing_resp.text[:300]}")
+        data = response.json()
+    except ValueError:
+        print("❌ Failed to decode JSON.")
+        print("📦 Raw response (start):", response.text[:500])
         exit(1)
 
-    print("✅ Credit check-in successful!")
-    print(f"👤 User: {pricing_data['data']['userName']}")
-    print(f"💳 Credits: {pricing_data['data']['credits']}")
+    if data.get("code") == 200:
+        print("✅ Check-in successful!")
+    elif data.get("msg", "").lower().startswith("checked in today"):
+        print("✅ Already checked in today.")
+    else:
+        print(f"⚠️ Unexpected response: {data}")
+        exit(1)
 
-if __name__ == "__main__":
-    main()
+except Exception as e:
+    print(f"❌ Exception occurred: {e}")
+    exit(1)
