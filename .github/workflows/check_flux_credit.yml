@@ -1,4 +1,5 @@
 name: ⚡️Flux AI Daily Check-In
+
 on:
   schedule:
     - cron: '0 7 * * *' # every day at 07:00 UTC
@@ -31,62 +32,3 @@ jobs:
           FLUX_TOKEN: ${{ secrets.FLUX_TOKEN }}
           FLUX_EMAIL: ${{ secrets.FLUX_EMAIL }}
         run: python .github/scripts/flux_daily_checkin.py
-  
-  notify:
-    needs: checkin
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: 📣 Create Issue on Failure
-        if: needs.checkin.outputs.status == 'error' || needs.checkin.outputs.status == 'unexpected'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `⚠️ Flux Check-in Failed - ${new Date().toISOString().split('T')[0]}`,
-              body: `## Flux Check-in Failure\n\n**Status:** ${context.payload.needs.checkin.outputs.status}\n**Message:** ${context.payload.needs.checkin.outputs.message}\n\nPlease check the [workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId}) for more details.`
-            })
-            
-      - name: 📊 Post Check-in Results Comment
-        uses: actions/github-script@v6
-        if: needs.checkin.outputs.status == 'success'
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // Find the most recent issue with the tag "flux-checkin-results"
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['flux-checkin-results'],
-              state: 'open',
-              per_page: 1
-            });
-            
-            const dateStr = new Date().toISOString().split('T')[0];
-            const commentBody = `## Flux Check-in Results (${dateStr})\n\n` +
-              `✅ **Status:** ${context.payload.needs.checkin.outputs.status}\n` +
-              `👤 **User:** ${context.payload.needs.checkin.outputs.username || 'N/A'}\n` +
-              `💳 **Credits:** ${context.payload.needs.checkin.outputs.credits || 'N/A'}\n\n` +
-              `[View Run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
-            
-            if (issues.data.length > 0) {
-              // Add comment to existing issue
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues.data[0].number,
-                body: commentBody
-              });
-            } else {
-              // Create new issue for tracking results
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `📊 Flux Check-in Results Tracker`,
-                body: commentBody,
-                labels: ['flux-checkin-results']
-              });
-            }
